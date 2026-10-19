@@ -1,0 +1,911 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prompt evals</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f8fafc;
+        --panel: #ffffff;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        --accent: #0891b2;
+        --accent-bg: #ecfeff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b1220;
+          --panel: #131c2e;
+          --border: #263349;
+          --text: #e2e8f0;
+          --muted: #8b9bb4;
+          --accent: #22d3ee;
+          --accent-bg: #0e2a33;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      main {
+        max-width: 1360px;
+        margin: 0 auto;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      /* #app's own children (summary bar, heatmap, case rail + weak fields,
+         or the case-detail layout) are swapped in as raw HTML per route, so
+         they need their own gap the same way main does for its direct children */
+      #app {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      header h1 {
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      header p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      header code {
+        font-family: ui-monospace, monospace;
+        font-size: 12px;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+      }
+      .summary-bar {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 24px;
+      }
+      .filters {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .filter {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .filter-label,
+      .metric-label {
+        font-family: ui-monospace, monospace;
+        font-size: 10px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      select {
+        font-family: ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--text);
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 4px 8px;
+      }
+      .metrics {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 32px;
+      }
+      .metric {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .metric-value {
+        font-size: 18px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+      .metric-hint {
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .heatmap-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 8px;
+      }
+      .heatmap-header h2 {
+        font-size: 14px;
+        margin: 0;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        table-layout: fixed;
+      }
+      th,
+      td {
+        padding: 6px 8px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+        font-size: 12px;
+        overflow-wrap: break-word;
+      }
+      th {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        background: var(--panel);
+      }
+      .heatmap-table {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .heatmap-table th,
+      .heatmap-table td {
+        padding: 4px;
+      }
+      .heatmap-table th:not(:first-child) {
+        font-size: 8px;
+        line-height: 1.2;
+        text-align: center;
+      }
+      .heatmap-table td:first-child,
+      .heatmap-table th:first-child {
+        font-size: 10px;
+        white-space: normal;
+      }
+      .grade-cell {
+        text-align: center;
+        font-weight: 700;
+        color: #1e293b;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 8px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .swatch {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+      }
+      .grid-two {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+        gap: 24px;
+      }
+      .case-rail h2,
+      .weak-fields h2 {
+        font-size: 14px;
+        margin: 0 0 8px;
+      }
+      .case-rail ul,
+      .weak-fields ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .case-rail a {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        text-decoration: none;
+        color: inherit;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 12px;
+        background: var(--panel);
+      }
+      .case-rail a.active {
+        border-color: var(--accent);
+        background: var(--accent-bg);
+      }
+      .case-rail .score {
+        width: 32px;
+        text-align: right;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        font-family: ui-monospace, monospace;
+      }
+      .case-rail .case-meta {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .case-rail .case-meta span:first-child {
+        font-size: 12px;
+      }
+      .case-rail .case-meta span:last-child {
+        font-size: 11px;
+      }
+      .weak-fields li {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 12px;
+        background: var(--panel);
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .weak-fields li span:first-child {
+        font-size: 12px;
+      }
+      .weak-fields li span:last-child {
+        font-size: 11px;
+      }
+      .empty-state {
+        text-align: center;
+        padding: 48px 24px;
+        border: 1px dashed var(--border);
+        border-radius: 10px;
+      }
+      .empty-state h2 {
+        font-size: 15px;
+        margin: 0 0 4px;
+      }
+      .empty-state p {
+        color: var(--muted);
+        max-width: 60ch;
+        margin: 0 auto;
+      }
+      .empty-state code {
+        display: inline-block;
+        margin-top: 12px;
+        font-family: ui-monospace, monospace;
+        font-size: 11px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 4px 10px;
+      }
+      .error {
+        color: #dc2626;
+      }
+      .back-link {
+        font-size: 12px;
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      /* three-column case page: collapsible rail | field diff | input & prompts */
+      .case-layout-3col {
+        display: grid;
+        grid-template-columns: 250px minmax(0, 1fr) 320px;
+        gap: 16px;
+        align-items: start;
+      }
+      .case-layout-3col.rail-collapsed {
+        grid-template-columns: 34px minmax(0, 1fr) 320px;
+      }
+      .case-rail-col {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        position: sticky;
+        top: 16px;
+      }
+      .rail-toggle {
+        width: 26px;
+        height: 26px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--panel);
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 12px;
+        line-height: 1;
+        align-self: flex-start;
+      }
+      .rail-toggle:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .case-side {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        position: sticky;
+        top: 16px;
+      }
+      @media (max-width: 980px) {
+        .case-layout-3col,
+        .case-layout-3col.rail-collapsed {
+          grid-template-columns: 1fr;
+        }
+        .case-rail-col,
+        .case-side {
+          position: static;
+        }
+      }
+
+      .case-main {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+      }
+      .case-header {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+      }
+      .score-large {
+        font-family: ui-monospace, monospace;
+        font-size: 26px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+      .case-header h1 {
+        font-size: 15px;
+        margin: 0;
+      }
+      .badge {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .callout {
+        border-left: 2px solid var(--accent);
+        background: var(--accent-bg);
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin: 0;
+      }
+      .diff-table td.right {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .grade-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-size: 11px;
+      }
+      .grade-badge .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+      details {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        background: var(--panel);
+      }
+      details summary {
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      details pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 11px;
+        max-height: 24rem;
+        overflow: auto;
+        margin: 8px 0 0;
+      }
+      details h3 {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        margin: 10px 0 2px;
+      }
+      .case-side details {
+        padding: 10px 12px;
+      }
+      .case-side pre {
+        font-size: 10.5px;
+      }
+
+      /* JSON syntax highlighting for the Input panel */
+      pre.json .json-key {
+        color: var(--accent);
+      }
+      pre.json .json-string {
+        color: #15803d;
+      }
+      pre.json .json-number {
+        color: #b45309;
+      }
+      pre.json .json-boolean {
+        color: #7c3aed;
+      }
+      pre.json .json-null {
+        color: var(--muted);
+        font-style: italic;
+      }
+      @media (prefers-color-scheme: dark) {
+        pre.json .json-string {
+          color: #4ade80;
+        }
+        pre.json .json-number {
+          color: #fbbf24;
+        }
+        pre.json .json-boolean {
+          color: #c4b5fd;
+        }
+      }
+
+      .loading {
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Prompt evals</h1>
+        <p>
+          Local only. Read-only view over the run files in <code>evals/</code>.
+        </p>
+      </header>
+      <div id="app"><p class="loading">Loading...</p></div>
+    </main>
+
+    <script>
+      function escapeHtml(str) {
+        return String(str).replace(
+          /[&<>"']/g,
+          c =>
+            ({
+              '&': '&amp;',
+              '<': '&lt;',
+              '>': '&gt;',
+              '"': '&quot;',
+              "'": '&#39;',
+            })[c]
+        );
+      }
+
+      function gradeCellStyle(grade) {
+        if (grade >= 9)
+          return { cell: '#bbf7d0', dot: '#22c55e', label: 'good (9-10)' };
+        if (grade >= 7)
+          return { cell: '#d9f99d', dot: '#84cc16', label: 'ok (7-8)' };
+        if (grade >= 4)
+          return { cell: '#fde68a', dot: '#f59e0b', label: 'weak (4-6)' };
+        return { cell: '#fca5a5', dot: '#dc2626', label: 'poor (0-3)' };
+      }
+
+      function scoreTone(score, threshold) {
+        if (score >= threshold) return '#15803d';
+        if (score >= threshold - 2) return '#b45309';
+        return '#b91c1c';
+      }
+
+      // run files are named for their ISO timestamp (UTC); parse back to a real
+      // Date and format in the viewer's local timezone
+      function runLabel(fileName) {
+        const stem = fileName.replace(/\.json$/, '');
+        const match = stem.match(
+          /^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/
+        );
+        if (!match) return stem;
+        const [, date, hh, mm, ss, ms] = match;
+        const parsed = new Date(`${date}T${hh}:${mm}:${ss}.${ms}Z`);
+        if (Number.isNaN(parsed.getTime())) return stem;
+        return parsed.toLocaleString(undefined, {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
+
+      // escapes token content, leaves structural JSON punctuation (safe chars) as-is --
+      // see kit/ui development notes: the string alternative in the regex captures
+      // everything user-controlled, so nothing outside a match can carry markup
+      function jsonHighlight(value) {
+        const json = JSON.stringify(value, null, 2);
+        if (!json) return '';
+        return json.replace(
+          /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false)\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+          match => {
+            let cls = 'json-number';
+            if (/^"/.test(match)) {
+              cls = /:\s*$/.test(match) ? 'json-key' : 'json-string';
+            } else if (/^(true|false)$/.test(match)) {
+              cls = 'json-boolean';
+            } else if (match === 'null') {
+              cls = 'json-null';
+            }
+            return `<span class="${cls}">${escapeHtml(match)}</span>`;
+          }
+        );
+      }
+
+      // wraps snake_case identifiers at underscore boundaries (<wbr>) instead of
+      // letting the browser break mid-word wherever it needs to make a narrow column fit
+      function fieldLabel(field) {
+        return escapeHtml(field).replace(/_/g, '_<wbr>');
+      }
+
+      function describeProblems(fieldGrades, threshold) {
+        const issues = fieldGrades
+          .filter(fg => fg.grade < threshold)
+          .slice()
+          .sort((a, b) => a.grade - b.grade);
+        if (!issues.length) return 'clean';
+        return issues.map(fg => `${fg.id} ${fg.grade.toFixed(1)}`).join(', ');
+      }
+
+      let caseRailCollapsed =
+        localStorage.getItem('evalui.railCollapsed') === '1';
+
+      async function fetchJson(url) {
+        const res = await fetch(url);
+        const body = await res.json();
+        if (!res.ok)
+          throw new Error(body.error || `Request failed: ${res.status}`);
+        return body;
+      }
+
+      function selectHtml(label, options, value, id) {
+        return (
+          `<label class="filter"><span class="filter-label">${label}</span>` +
+          `<select id="${id}">${options
+            .map(
+              o =>
+                `<option value="${escapeHtml(o.value)}" ${o.value === value ? 'selected' : ''}>${escapeHtml(o.label)}</option>`
+            )
+            .join('')}</select></label>`
+        );
+      }
+
+      function metricHtml(label, value, color, hint) {
+        return (
+          `<div class="metric"><span class="metric-label">${escapeHtml(label)}</span>` +
+          `<span class="metric-value" style="${color ? `color:${color}` : ''}">${escapeHtml(value)}</span>` +
+          (hint ? `<span class="metric-hint">${escapeHtml(hint)}</span>` : '') +
+          `</div>`
+        );
+      }
+
+      function emptyStateHtml(title, detail, command) {
+        return (
+          `<div class="empty-state"><h2>${escapeHtml(title)}</h2><p>${escapeHtml(detail)}</p>` +
+          (command ? `<code>${escapeHtml(command)}</code>` : '') +
+          `</div>`
+        );
+      }
+
+      function valueHtml(value) {
+        if (value === null || value === undefined || value === '') {
+          return '<span class="mono muted">null</span>';
+        }
+        return escapeHtml(value);
+      }
+
+      function caseRailHtml(run, track, runId, activeCaseId) {
+        const results = run.results
+          .slice()
+          .sort((a, b) => a.grade.score - b.grade.score);
+        return `<div class="case-rail panel"><h2>Cases, worst first</h2><ul>${results
+          .map(
+            r => `
+    <li><a href="/${encodeURIComponent(track)}/${encodeURIComponent(runId)}/${encodeURIComponent(r.case_id)}"
+        class="${r.case_id === activeCaseId ? 'active' : ''}">
+      <span class="score" style="color:${scoreTone(r.grade.score, run.pass_threshold)}">${r.grade.score.toFixed(1)}</span>
+      <span class="case-meta">
+        <span class="mono">${escapeHtml(r.case_id)}</span>
+        <span class="muted">${escapeHtml(describeProblems(r.grade.field_grades, run.pass_threshold))}</span>
+      </span>
+    </a></li>`
+          )
+          .join('')}</ul></div>`;
+      }
+
+      function heatmapHtml(run, track, runId, fields) {
+        const gradeFor = (caseId, id) => {
+          const result = run.results.find(r => r.case_id === caseId);
+          const fg = result && result.grade.field_grades.find(f => f.id === id);
+          return fg ? fg.grade : null;
+        };
+        return `<div class="heatmap panel">
+    <div class="heatmap-header">
+      <h2>Cases &times; fields</h2>
+      <p class="muted">A bad row is a hard case. A bad column is a prompt defect.</p>
+    </div>
+    <div class="heatmap-table"><table>
+      <colgroup><col style="width:120px">${fields.map(() => '<col>').join('')}</colgroup>
+      <thead><tr><th>Case</th>${fields.map(f => `<th title="${escapeHtml(f)}">${fieldLabel(f)}</th>`).join('')}</tr></thead>
+      <tbody>${run.results
+        .map(r => r.case_id)
+        .map(
+          caseId => `
+        <tr>
+          <td class="mono"><a href="/${encodeURIComponent(track)}/${encodeURIComponent(runId)}/${encodeURIComponent(caseId)}">${escapeHtml(caseId)}</a></td>
+          ${fields
+            .map(f => {
+              const grade = gradeFor(caseId, f);
+              const style = grade === null ? null : gradeCellStyle(grade);
+              return `<td class="grade-cell" style="background:${style ? style.cell : '#f1f5f9'}" title="${escapeHtml(caseId)} / ${escapeHtml(f)}: ${grade === null ? 'not graded' : style.label}">${grade === null ? '?' : grade.toFixed(0)}</td>`;
+            })
+            .join('')}
+        </tr>`
+        )
+        .join('')}</tbody>
+    </table></div>
+    <div class="legend">${[2, 5, 8, 10]
+      .map(g => {
+        const s = gradeCellStyle(g);
+        return `<span class="legend-item"><span class="swatch" style="background:${s.cell}"></span>${s.label}</span>`;
+      })
+      .join('')}</div>
+  </div>`;
+      }
+
+      async function renderIndex(track, runId, root) {
+        const qs = new URLSearchParams();
+        if (track) qs.set('track', track);
+        if (runId) qs.set('run', runId);
+        const data = await fetchJson(`/api/index?${qs}`);
+
+        if (!data.tracks || !data.tracks.length) {
+          root.innerHTML = emptyStateHtml(
+            'No eval tracks found',
+            'Nothing under evals/ yet. Tracks are discovered from the filesystem, so one appears here as soon as it has a directory.'
+          );
+          return;
+        }
+        if (!data.runFiles || !data.runFiles.length) {
+          root.innerHTML = emptyStateHtml(
+            `No runs for ${data.track}`,
+            'Run files are gitignored and generated locally. Run the eval once and reload this page.',
+            `npx eval-kit run ${data.track}`
+          );
+          return;
+        }
+
+        const passing = data.run.results.filter(
+          r => r.grade.score >= data.run.pass_threshold
+        ).length;
+        const comparable =
+          data.previous &&
+          data.previous.summary.cases === data.run.summary.cases;
+        const delta = comparable
+          ? Math.round(
+              (data.run.summary.mean_score - data.previous.summary.mean_score) *
+                100
+            ) / 100
+          : null;
+        const samePrompt =
+          data.previous && data.previous.prompt_hash === data.run.prompt_hash;
+        // absent on runs written before per-case isolation
+        const errors = data.run.errors || [];
+
+        root.innerHTML = `
+    <div class="summary-bar panel">
+      <div class="filters">
+        ${selectHtml(
+          'Track',
+          data.tracks.map(t => ({ value: t, label: t })),
+          data.track,
+          'track-select'
+        )}
+        ${selectHtml(
+          'Run',
+          data.runFiles.map(f => ({ value: f, label: runLabel(f) })),
+          data.runId,
+          'run-select'
+        )}
+      </div>
+      <div class="metrics">
+        ${metricHtml('Mean', data.run.summary.mean_score.toFixed(2), scoreTone(data.run.summary.mean_score, data.run.pass_threshold))}
+        ${metricHtml(`Pass >= ${data.run.pass_threshold}`, `${passing}/${data.run.summary.cases}`)}
+        ${errors.length ? metricHtml('Errored', `${errors.length}/${data.run.summary.cases}`, '#b91c1c', 'no grade, see below') : ''}
+        ${metricHtml(
+          'vs prev',
+          delta === null ? '--' : `${delta > 0 ? '+' : ''}${delta.toFixed(2)}`,
+          delta === null || delta === 0
+            ? '#94a3b8'
+            : delta > 0
+              ? '#15803d'
+              : '#b91c1c',
+          !data.previous
+            ? 'no earlier run'
+            : !comparable
+              ? 'different case count'
+              : samePrompt
+                ? 'prompt unchanged'
+                : 'prompt changed'
+        )}
+        ${metricHtml(
+          'Prompt hash',
+          data.run.prompt_hash.replace('sha256:', ''),
+          null,
+          `${data.run.model} / graded by ${data.run.grader_model}`
+        )}
+      </div>
+    </div>
+
+    ${heatmapHtml(data.run, data.track, data.runId, data.fields)}
+
+    ${
+      errors.length
+        ? `<div class="weak-fields panel">
+        <h2>Errored cases</h2>
+        <ul>${errors.map(e => `<li><span class="mono">${escapeHtml(e.case_id)}</span><span class="muted">${escapeHtml(e.stage)}: ${escapeHtml(e.error)}</span></li>`).join('')}</ul>
+      </div>`
+        : ''
+    }
+
+    <div class="grid-two">
+      ${caseRailHtml(data.run, data.track, data.runId, null)}
+      <div class="weak-fields panel">
+        <h2>Weakest fields</h2>
+        ${
+          data.weakFields.length === 0
+            ? '<p class="muted">Every field graded at or above the pass bar.</p>'
+            : `<ul>${data.weakFields.map(w => `<li><span class="mono">${escapeHtml(w.id)}</span><span class="muted">${w.count}x below ${data.run.pass_threshold}, mean ${w.meanGrade.toFixed(1)}</span></li>`).join('')}</ul>`
+        }
+      </div>
+    </div>`;
+
+        document
+          .getElementById('track-select')
+          .addEventListener('change', e => {
+            location.href = `/${encodeURIComponent(e.target.value)}`;
+          });
+        document.getElementById('run-select').addEventListener('change', e => {
+          location.href = `/${encodeURIComponent(data.track)}/${encodeURIComponent(e.target.value)}`;
+        });
+      }
+
+      async function renderCase(track, runId, caseId, root) {
+        const qs = new URLSearchParams({ track, run: runId, caseId });
+        const data = await fetchJson(`/api/case?${qs}`);
+
+        const { run: runData, evalCase, result, fields, criteria } = data;
+        const gradeFor = id =>
+          result.grade.field_grades.find(fg => fg.id === id);
+        const ordered = fields.slice().sort((a, b) => {
+          const ga = gradeFor(a);
+          const gb = gradeFor(b);
+          return (ga ? ga.grade : 10) - (gb ? gb.grade : 10);
+        });
+
+        root.innerHTML = `
+    <a class="back-link" href="/${encodeURIComponent(track)}/${encodeURIComponent(data.runId)}">&larr; back to summary</a>
+    <div class="case-layout-3col ${caseRailCollapsed ? 'rail-collapsed' : ''}">
+      <div class="case-rail-col">
+        <button id="rail-toggle" class="rail-toggle" title="${caseRailCollapsed ? 'Show cases' : 'Hide cases'}">${caseRailCollapsed ? '»' : '«'}</button>
+        ${caseRailCollapsed ? '' : caseRailHtml(runData, track, data.runId, caseId)}
+      </div>
+
+      <div class="case-main">
+        <div class="case-header">
+          <span class="score-large" style="color:${scoreTone(result.grade.score, runData.pass_threshold)}">${result.grade.score.toFixed(1)}</span>
+          <h1 class="mono">${escapeHtml(caseId)}</h1>
+          ${evalCase.synthetic ? '<span class="badge">synthetic</span>' : ''}
+        </div>
+        <p class="muted">${escapeHtml(evalCase.description)}</p>
+        <p class="callout">${escapeHtml(result.grade.summary)}</p>
+
+        <div class="panel diff-table"><table>
+          <colgroup><col style="width:96px"><col><col><col style="width:58px"><col style="width:32px"><col style="width:130px"></colgroup>
+          <thead><tr><th>Field</th><th>Expected</th><th>Actual</th><th>Grade</th><th>Wt</th><th>Reasoning</th></tr></thead>
+          <tbody>${ordered
+            .map(field => {
+              const fg = gradeFor(field);
+              const weight = criteria[field] ? criteria[field].weight : null;
+              const style = fg ? gradeCellStyle(fg.grade) : null;
+              return `<tr>
+              <td class="mono">${fieldLabel(field)}</td>
+              <td>${valueHtml(evalCase.expected[field])}</td>
+              <td>${valueHtml(result.output[field])}</td>
+              <td>${
+                fg
+                  ? `<span class="grade-badge"><span class="dot" style="background:${style.dot}"></span>${fg.grade.toFixed(1)}</span>`
+                  : '<span class="muted">not graded</span>'
+              }</td>
+              <td class="right mono">${weight === null ? '' : weight}</td>
+              <td class="muted">${escapeHtml(fg ? fg.reasoning : '')}</td>
+            </tr>`;
+            })
+            .join('')}</tbody>
+        </table></div>
+
+        <details open><summary>Case notes (${evalCase.notes.length})</summary>
+          <ul>${evalCase.notes.map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul>
+        </details>
+      </div>
+
+      <div class="case-side">
+        <details open><summary>Input</summary>
+          <pre class="json">${jsonHighlight(evalCase.input)}</pre>
+        </details>
+        <details><summary>Prompts as sent</summary>
+          <h3>System</h3><pre>${escapeHtml(result.system_prompt)}</pre>
+          <h3>User</h3><pre>${escapeHtml(result.user_prompt)}</pre>
+          ${
+            result.params
+              ? `<h3>Params</h3><pre class="json">${jsonHighlight(result.params)}</pre>`
+              : ''
+          }
+        </details>
+      </div>
+    </div>`;
+
+        document.getElementById('rail-toggle').addEventListener('click', () => {
+          caseRailCollapsed = !caseRailCollapsed;
+          localStorage.setItem(
+            'evalui.railCollapsed',
+            caseRailCollapsed ? '1' : '0'
+          );
+          render();
+        });
+      }
+
+      function parsePath() {
+        const [track, runId, caseId] = location.pathname
+          .split('/')
+          .filter(Boolean)
+          .map(decodeURIComponent);
+        return { track: track || '', runId: runId || '', caseId: caseId || '' };
+      }
+
+      async function render() {
+        const { track, runId, caseId } = parsePath();
+        const root = document.getElementById('app');
+        root.innerHTML = '<p class="loading">Loading...</p>';
+        try {
+          if (caseId) {
+            await renderCase(track, runId, caseId, root);
+          } else {
+            await renderIndex(track, runId, root);
+          }
+        } catch (err) {
+          root.innerHTML = `<p class="error">${escapeHtml(err && err.message ? err.message : String(err))}</p>`;
+        }
+      }
+
+      window.addEventListener('DOMContentLoaded', render);
+    </script>
+  </body>
+</html>

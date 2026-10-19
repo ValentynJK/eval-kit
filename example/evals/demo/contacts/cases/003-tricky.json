@@ -1,0 +1,16 @@
+{
+  "id": "003-tricky",
+  "description": "Greeting capitalised like a name, company in lowercase prose",
+  "synthetic": true,
+  "input": {
+    "text": "Good Morning! This is Priya Shah from the Northwind Data Trust: priya@northwind.example"
+  },
+  "expected": {
+    "name": "Priya Shah",
+    "email": "priya@northwind.example",
+    "company": "Northwind Data Trust"
+  },
+  "notes": [
+    "The regex extractor is expected to fail this one -- it shows a failing case in the report."
+  ]
+}

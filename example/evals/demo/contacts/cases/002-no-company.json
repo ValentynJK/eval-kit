@@ -1,0 +1,12 @@
+{
+  "id": "002-no-company",
+  "description": "No company mentioned -- company should be null",
+  "synthetic": true,
+  "input": { "text": "Freelancer here. Jonas Weber, jonas@weber.example." },
+  "expected": {
+    "name": "Jonas Weber",
+    "email": "jonas@weber.example",
+    "company": null
+  },
+  "notes": ["Freelancers have no company; null is correct."]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "001-plain",
+  "description": "All three fields stated plainly",
+  "synthetic": true,
+  "input": {
+    "text": "Hi, I'm Maria Lopez at Acme Corp, reach me at maria.lopez@acme.example."
+  },
+  "expected": {
+    "name": "Maria Lopez",
+    "email": "maria.lopez@acme.example",
+    "company": "Acme Corp"
+  },
+  "notes": []
+}

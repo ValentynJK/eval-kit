@@ -1,0 +1,73 @@
+{
+  "name": "@valentynjk/eval-kit",
+  "version": "0.1.0",
+  "description": "Grade LLM calls field by field against golden cases with an LLM judge, with a local run viewer",
+  "keywords": [
+    "llm",
+    "eval",
+    "evals",
+    "evaluation",
+    "llm-as-judge",
+    "ai-sdk",
+    "testing"
+  ],
+  "license": "MIT",
+  "author": "Valentyn Kolesnichenko",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "eval-kit": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ValentynJK/eval-kit.git"
+  },
+  "homepage": "https://github.com/ValentynJK/eval-kit#readme",
+  "bugs": {
+    "url": "https://github.com/ValentynJK/eval-kit/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsup",
+    "typecheck": "tsc",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "prepublishOnly": "npm run typecheck && npm test",
+    "example:run": "cd example && tsx ../src/cli/index.ts run",
+    "example:ui": "cd example && tsx watch --clear-screen=false ../src/cli/index.ts ui",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "ai": "^6.0.0",
+    "zod": "^3.24.0"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.132",
+    "@ai-sdk/openai": "^3.0.129",
+    "dotenv": "^16.6.1",
+    "tsx": "^4.22.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "ai": "^6.0.191",
+    "prettier": "^3.8.3",
+    "tsup": "^9.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.7",
+    "zod": "^3.25.76"
+  }
+}

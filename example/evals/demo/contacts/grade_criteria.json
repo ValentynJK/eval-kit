@@ -1,0 +1,11 @@
+{
+  "name": {
+    "criteria": "The person's full name, first and last.",
+    "weight": 2
+  },
+  "email": { "criteria": "The exact email address.", "weight": 2 },
+  "company": {
+    "criteria": "The company the person works at, as named in the text.",
+    "weight": 1
+  }
+}
