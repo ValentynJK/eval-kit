@@ -41,8 +41,12 @@ function sendJson(
 const toRunId = (fileName: string): string => fileName.replace(/\.json$/, '');
 const toFileName = (runId: string): string => `${runId}.json`;
 
-function findTrack(track: string): { feature: string; track: string } | null {
-  return listTracks().find(one => one.track === track) ?? null;
+// a track is identified as `feature/track`, not by its name alone -- two features can both have a track with the same name
+const trackId = (one: { feature: string; track: string }): string =>
+  `${one.feature}/${one.track}`;
+
+function findTrack(id: string): { feature: string; track: string } | null {
+  return listTracks().find(one => trackId(one) === id) ?? null;
 }
 
 function servePage(res: http.ServerResponse): void {
@@ -64,12 +68,12 @@ function handleIndex(query: URLSearchParams, res: http.ServerResponse): void {
   if (!active)
     return sendJson(res, 404, { error: `track not found: ${requestedTrack}` });
 
-  const trackNames = tracks.map(one => one.track);
+  const trackIds = tracks.map(trackId);
   const runFiles = listRunFiles(active.feature, active.track);
   if (!runFiles.length) {
     return sendJson(res, 200, {
-      tracks: trackNames,
-      track: active.track,
+      tracks: trackIds,
+      track: trackId(active),
       runFiles: [],
     });
   }
@@ -89,8 +93,8 @@ function handleIndex(query: URLSearchParams, res: http.ServerResponse): void {
   const weakFields = fieldProblems(run.results, run.pass_threshold).slice(0, 5);
 
   sendJson(res, 200, {
-    tracks: trackNames,
-    track: active.track,
+    tracks: trackIds,
+    track: trackId(active),
     runFiles: runFiles.map(toRunId),
     runId: toRunId(runFile),
     run,
@@ -138,23 +142,30 @@ function pathSegments(pathname: string): string[] {
   return pathname.split('/').filter(Boolean).map(decodeURIComponent);
 }
 
-// GET /<track>/<runId>/<caseId> -- a missing track or run redirects to the current default so the URL always fully identifies what's on screen
+// GET /<feature>/<track>/<runId>/<caseId> -- a missing track or run redirects to the current default so the URL always fully identifies what's on screen
 function handlePage(pathname: string, res: http.ServerResponse): void {
-  const [trackSeg, runSeg] = pathSegments(pathname);
+  const [featureSeg, trackSeg, runSeg] = pathSegments(pathname);
   const tracks = listTracks();
 
-  if (!trackSeg) {
+  if (!featureSeg || !trackSeg) {
     if (!tracks.length) return servePage(res);
-    return redirect(res, `/${encodeURIComponent(tracks[0].track)}`);
+    const { feature, track } = tracks[0];
+    return redirect(
+      res,
+      `/${encodeURIComponent(feature)}/${encodeURIComponent(track)}`
+    );
   }
 
-  const active = findTrack(trackSeg);
+  const active = findTrack(`${featureSeg}/${trackSeg}`);
   if (!active) return servePage(res);
 
   if (!runSeg) {
     const runFiles = listRunFiles(active.feature, active.track);
     if (!runFiles.length) return servePage(res);
-    return redirect(res, `/${trackSeg}/${toRunId(runFiles[0])}`);
+    return redirect(
+      res,
+      `/${encodeURIComponent(active.feature)}/${encodeURIComponent(active.track)}/${encodeURIComponent(toRunId(runFiles[0]))}`
+    );
   }
 
   return servePage(res);

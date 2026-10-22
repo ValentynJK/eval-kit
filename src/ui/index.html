@@ -621,6 +621,11 @@
         return escapeHtml(value);
       }
 
+      // track is `feature/track`; encode each segment, not the joined string, so the slash stays a path separator
+      function trackPath(track) {
+        return track.split('/').map(encodeURIComponent).join('/');
+      }
+
       function caseRailHtml(run, track, runId, activeCaseId) {
         const results = run.results
           .slice()
@@ -628,7 +633,7 @@
         return `<div class="case-rail panel"><h2>Cases, worst first</h2><ul>${results
           .map(
             r => `
-    <li><a href="/${encodeURIComponent(track)}/${encodeURIComponent(runId)}/${encodeURIComponent(r.case_id)}"
+    <li><a href="/${trackPath(track)}/${encodeURIComponent(runId)}/${encodeURIComponent(r.case_id)}"
         class="${r.case_id === activeCaseId ? 'active' : ''}">
       <span class="score" style="color:${scoreTone(r.grade.score, run.pass_threshold)}">${r.grade.score.toFixed(1)}</span>
       <span class="case-meta">
@@ -659,7 +664,7 @@
         .map(
           caseId => `
         <tr>
-          <td class="mono"><a href="/${encodeURIComponent(track)}/${encodeURIComponent(runId)}/${encodeURIComponent(caseId)}">${escapeHtml(caseId)}</a></td>
+          <td class="mono"><a href="/${trackPath(track)}/${encodeURIComponent(runId)}/${encodeURIComponent(caseId)}">${escapeHtml(caseId)}</a></td>
           ${fields
             .map(f => {
               const grade = gradeFor(caseId, f);
@@ -697,7 +702,8 @@
           root.innerHTML = emptyStateHtml(
             `No runs for ${data.track}`,
             'Run files are gitignored and generated locally. Run the eval once and reload this page.',
-            `npx eval-kit run ${data.track}`
+            // the full config path, not the bare track name -- the cli rejects a name that two features share
+            `npx eval-kit run evals/${data.track}/config`
           );
           return;
         }
@@ -790,10 +796,10 @@
         document
           .getElementById('track-select')
           .addEventListener('change', e => {
-            location.href = `/${encodeURIComponent(e.target.value)}`;
+            location.href = `/${trackPath(e.target.value)}`;
           });
         document.getElementById('run-select').addEventListener('change', e => {
-          location.href = `/${encodeURIComponent(data.track)}/${encodeURIComponent(e.target.value)}`;
+          location.href = `/${trackPath(data.track)}/${encodeURIComponent(e.target.value)}`;
         });
       }
 
@@ -811,7 +817,7 @@
         });
 
         root.innerHTML = `
-    <a class="back-link" href="/${encodeURIComponent(track)}/${encodeURIComponent(data.runId)}">&larr; back to summary</a>
+    <a class="back-link" href="/${trackPath(track)}/${encodeURIComponent(data.runId)}">&larr; back to summary</a>
     <div class="case-layout-3col ${caseRailCollapsed ? 'rail-collapsed' : ''}">
       <div class="case-rail-col">
         <button id="rail-toggle" class="rail-toggle" title="${caseRailCollapsed ? 'Show cases' : 'Hide cases'}">${caseRailCollapsed ? '»' : '«'}</button>
@@ -883,11 +889,15 @@
       }
 
       function parsePath() {
-        const [track, runId, caseId] = location.pathname
+        const [feature, track, runId, caseId] = location.pathname
           .split('/')
           .filter(Boolean)
           .map(decodeURIComponent);
-        return { track: track || '', runId: runId || '', caseId: caseId || '' };
+        return {
+          track: feature && track ? `${feature}/${track}` : '',
+          runId: runId || '',
+          caseId: caseId || '',
+        };
       }
 
       async function render() {
