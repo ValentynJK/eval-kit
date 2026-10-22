@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+# id-token lets npm verify this workflow as the package's trusted publisher -- no npm token secret
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      # trusted publishing needs npm >= 11.5.1; node 22 ships npm 10
+      - run: npm install -g npm@^11.5.1
+      - name: Tag matches package version
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$version" != "${{ github.event.release.tag_name }}" ]; then
+            echo "Release tag ${{ github.event.release.tag_name }} does not match package.json $version"
+            exit 1
+          fi
+      - run: npm ci
+      # prepublishOnly runs typecheck and test, prepack runs build
+      - run: npm publish
