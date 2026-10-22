@@ -4,4 +4,3 @@ dist
 example/evals/*/*/runs
 example/.env
 .env
-.github
