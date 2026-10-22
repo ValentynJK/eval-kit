@@ -1,7 +1,6 @@
 import { describeProblems, fieldProblems } from './fieldGradeSummary';
+import { compareRuns } from './compareRuns';
 import type { EvalRun } from './types';
-
-const round2 = (value: number): number => Math.round(value * 100) / 100;
 
 export function printReport(run: EvalRun, previous: EvalRun | null): void {
   const passing = run.results.filter(
@@ -20,19 +19,12 @@ export function printReport(run: EvalRun, previous: EvalRun | null): void {
     console.log(`errored ${errors.length}/${run.summary.cases}`);
   }
 
-  // comparing means across different case subsets is meaningless, so a --case run reports as not comparable
-  if (previous && previous.summary.cases !== run.summary.cases) {
-    console.log(
-      `vs previous  n/a   (${previous.summary.cases} cases then vs ${run.summary.cases} now)`
-    );
-  } else if (previous) {
-    const delta = round2(run.summary.mean_score - previous.summary.mean_score);
-    const sign = delta > 0 ? '+' : '';
-    const note =
-      previous.prompt_hash === run.prompt_hash
-        ? 'prompt unchanged -- treat any movement as nondeterminism'
-        : `prompt changed from ${previous.prompt_hash}`;
-    console.log(`vs previous  ${sign}${delta.toFixed(2)}   (${note})`);
+  const comparison = compareRuns(run, previous);
+  if (comparison) {
+    const { delta, note } = comparison;
+    const value =
+      delta === null ? 'n/a' : `${delta > 0 ? '+' : ''}${delta.toFixed(2)}`;
+    console.log(`vs previous  ${value}   (${note})`);
   }
 
   if (run.results.length) {

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { compareRuns } from '../engine/compareRuns';
 import { caseFields, loadCase, loadCases } from '../engine/loadCases';
 import { fieldProblems } from '../engine/fieldGradeSummary';
 import { loadGradeCriteria } from '../engine/gradeCriteria';
@@ -94,7 +95,7 @@ function handleIndex(query: URLSearchParams, res: http.ServerResponse): void {
     runFiles: runFiles.map(toRunId),
     runId: toRunId(runFile),
     run,
-    previous,
+    comparison: compareRuns(run, previous),
     fields,
     weakFields,
   });

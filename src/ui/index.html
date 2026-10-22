@@ -705,17 +705,8 @@
         const passing = data.run.results.filter(
           r => r.grade.score >= data.run.pass_threshold
         ).length;
-        const comparable =
-          data.previous &&
-          data.previous.summary.cases === data.run.summary.cases;
-        const delta = comparable
-          ? Math.round(
-              (data.run.summary.mean_score - data.previous.summary.mean_score) *
-                100
-            ) / 100
-          : null;
-        const samePrompt =
-          data.previous && data.previous.prompt_hash === data.run.prompt_hash;
+        // decided server-side by engine/compareRuns, so the page and the cli report agree; null when there's no earlier run
+        const delta = data.comparison ? data.comparison.delta : null;
         // absent on runs written before per-case isolation
         const errors = data.run.errors || [];
 
@@ -747,13 +738,7 @@
             : delta > 0
               ? '#15803d'
               : '#b91c1c',
-          !data.previous
-            ? 'no earlier run'
-            : !comparable
-              ? 'different case count'
-              : samePrompt
-                ? 'prompt unchanged'
-                : 'prompt changed'
+          data.comparison ? data.comparison.note : 'no earlier run'
         )}
         ${metricHtml(
           'Prompt hash',
